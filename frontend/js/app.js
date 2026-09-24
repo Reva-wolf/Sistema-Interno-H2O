@@ -7,9 +7,10 @@ data.value=new Date().toISOString().slice(0,10); fdata.value=data.value;
 async function api(url,opt){const r=await fetch(url,opt);const j=await r.json();if(!r.ok)throw Error(j.erro||'Erro');return j}
 async function agenda(){
  const podeEncaminhar=(setor==='BANHO'||setor==='CLINICA');
- const [rows,bloqueios]=await Promise.all([
+ const [rows,bloqueios,funcs]=await Promise.all([
   api(`/api/agendamentos?data=${data.value}&setor=${setor}`),
-  api(`/api/bloqueios?data=${data.value}&setor=${setor}`)
+  api(`/api/bloqueios?data=${data.value}&setor=${setor}`),
+  podeEncaminhar?api(`/api/funcionarios?setor=${setor}`):Promise.resolve([])
  ]);
  const by=Object.fromEntries(rows.map(x=>[x.horario.slice(0,5),x]));
  const bloqueadoPor=Object.fromEntries(bloqueios.map(b=>[b.horario.slice(0,5),b]));
@@ -20,12 +21,19 @@ async function agenda(){
    const cl=encaminhado?'red':(x.status==='LIBERADO'?'green':x.status==='ANDAMENTO'?'blue':'red');
    const next=x.status==='AGENDADO'?'ANDAMENTO':x.status==='ANDAMENTO'?'LIBERADO':null;
    const tagOrigem=x.origem_setor?`<br><span class="muted">🔄 Encaminhado ${x.origem_setor==='BANHO'?'do Banho':'da Clínica'}</span>`:'';
+   const selFunc=`<select class="sel-func" onchange="atribuirFuncionario(${x.id},this.value)">
+     <option value="">Sem profissional</option>
+     ${funcs.map(f=>`<option value="${f.id}" ${x.funcionario_id==f.id?'selected':''}>${f.nome}</option>`).join('')}
+    </select>`;
+   const cronometro=(setor==='BANHO'&&x.status==='ANDAMENTO'&&x.iniciado_em)
+    ?`<span class="muted" data-inicio="${new Date(x.iniciado_em).toISOString()}">⏱ 00:00</span>`:'';
    return `<div class="row ${cl}">
     <strong>${h}</strong><div><b>${x.pet}</b><br><span class="muted">${x.tutor} • ${x.telefone||''}</span>${tagOrigem}</div>
     <span>${x.especie==='GATO'?'🐱 Gato':'🐶 Cão'}</span><span>${x.servico}</span>
-    <span>${encaminhado?'🔴 Encaminhado':label(x.status)}</span>
+    <span>${encaminhado?'🔴 Encaminhado':label(x.status)}${x.funcionario?`<br><span class="muted">👤 ${x.funcionario}</span>`:''}${cronometro?`<br>${cronometro}`:''}</span>
     <div class="actions">${next?`<button onclick="status(${x.id},'${next}')">→ ${label(next)}</button>`:''}
     ${podeEncaminhar?`<button onclick="alerta(${x.id})">🚨 Encaminhar</button>`:''}
+    ${selFunc}
     <label class="chk"><input type="checkbox" ${Number(x.pago)===1?'checked':''} onchange="flag(${x.id},'pago',this.checked)"> 💰 Pago</label>
     <label class="chk"><input type="checkbox" ${Number(x.retirado)===1?'checked':''} onchange="flag(${x.id},'retirado',this.checked)"> ✅ Retirado</label>
     </div>
@@ -63,6 +71,19 @@ async function desbloquear(id){
  agenda();
 }
 async function status(id,s){await api(`/api/agendamentos/${id}/status`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s})});agenda()}
+async function atribuirFuncionario(id,funcionarioId){
+ await api(`/api/agendamentos/${id}/funcionario`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({funcionario_id:funcionarioId||null})});
+ agenda();
+}
+function atualizarCronometros(){
+ document.querySelectorAll('[data-inicio]').forEach(el=>{
+  const inicio=new Date(el.dataset.inicio);
+  const diff=Math.max(0,Math.floor((Date.now()-inicio.getTime())/1000));
+  const m=String(Math.floor(diff/60)).padStart(2,'0'),s=String(diff%60).padStart(2,'0');
+  el.textContent=`⏱ ${m}:${s}`;
+ });
+}
+setInterval(atualizarCronometros,1000);
 async function flag(id,campo,valor){
  await api(`/api/agendamentos/${id}/flag`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({campo,valor})});
  if(setor!=='LOJA')agenda();
@@ -132,21 +153,25 @@ $('formPet').onsubmit=async e=>{
 };
 $('pet').addEventListener('change',()=>{$('especie').value=$('pet').selectedOptions[0]?.dataset.e==='GATO'?'🐱 Gato':$('pet').value?'🐶 Cão':''});
 async function popularHorariosNovo(){
- const d=fdata.value||data.value;
- const [ocupados,bloqueios]=await Promise.all([
-  api(`/api/agendamentos?data=${d}&setor=${setor}`),
-  api(`/api/bloqueios?data=${d}&setor=${setor}`)
- ]);
- const ocupadosSet=new Set(ocupados.map(x=>x.horario.slice(0,5)));
- const bloqueadosSet=new Set(bloqueios.map(b=>b.horario.slice(0,5)));
  const sel=$('novoHorario');
  const atual=sel.value;
- sel.innerHTML=horarios.map(h=>{
-  const ocupado=ocupadosSet.has(h),bloqueado=bloqueadosSet.has(h);
-  const rotulo=ocupado?`${h} (ocupado)`:bloqueado?`${h} (bloqueado)`:h;
-  return `<option value="${h}" ${(ocupado||bloqueado)?'disabled':''}>${rotulo}</option>`;
- }).join('');
- if(horarios.includes(atual)&&!ocupadosSet.has(atual)&&!bloqueadosSet.has(atual))sel.value=atual;
+ try{
+  const d=fdata.value||data.value;
+  const [ocupados,bloqueios]=await Promise.all([
+   api(`/api/agendamentos?data=${d}&setor=${setor}`),
+   api(`/api/bloqueios?data=${d}&setor=${setor}`)
+  ]);
+  const ocupadosSet=new Set(ocupados.map(x=>x.horario.slice(0,5)));
+  const bloqueadosSet=new Set(bloqueios.map(b=>b.horario.slice(0,5)));
+  sel.innerHTML=horarios.map(h=>{
+   const ocupado=ocupadosSet.has(h),bloqueado=bloqueadosSet.has(h);
+   const rotulo=ocupado?`${h} (ocupado)`:bloqueado?`${h} (bloqueado)`:h;
+   return `<option value="${h}" ${(ocupado||bloqueado)?'disabled':''}>${rotulo}</option>`;
+  }).join('');
+  if(horarios.includes(atual)&&!ocupadosSet.has(atual)&&!bloqueadosSet.has(atual))sel.value=atual;
+ }catch(err){
+  sel.innerHTML=`<option value="">Erro ao carregar horários: ${err.message}</option>`;
+ }
 }
 $('novo').onclick=async()=>{fdata.value=data.value;$('modal').classList.remove('hidden');await carregarTutores();await carregarPets();await popularHorariosNovo()};
 fdata.onchange=popularHorariosNovo;
@@ -178,3 +203,38 @@ $('fecharAlertas').onclick=()=> $('alertModal').classList.add('hidden');
 async function ler(id){await api(`/api/alertas/${id}/lido`,{method:'PATCH'});$('alertasTab').click();carregarAlertas()}
 $('voiceButton').onclick=()=>{if(!('SpeechRecognition'in window||'webkitSpeechRecognition'in window)){alert('Reconhecimento de voz não disponível neste navegador. No tablet Android, testar Chrome.');return} const R=window.SpeechRecognition||window.webkitSpeechRecognition;const r=new R();r.lang='pt-BR';r.start();r.onresult=e=>alert('Comando reconhecido: '+e.results[0][0].transcript+'\n\nA interpretação dos comandos será ligada na Parte 5.')};
 agenda();carregarAlertas();
+
+// Gestão de funcionários (modal)
+async function carregarListaFuncionarios(setorLista,elId){
+ const fs=await api(`/api/funcionarios?setor=${setorLista}`);
+ $(elId).innerHTML=fs.length?fs.map(f=>`<div class="func-item"><span>${f.nome}</span><button onclick="removerFuncionario(${f.id})" title="Remover">×</button></div>`).join(''):'<p class="muted">Nenhum cadastrado.</p>';
+}
+async function abrirFuncionarios(){
+ await carregarListaFuncionarios('BANHO','listaFuncBanho');
+ await carregarListaFuncionarios('CLINICA','listaFuncClinica');
+ $('funcModal').classList.remove('hidden');
+}
+async function removerFuncionario(id){
+ if(!confirm('Remover esse funcionário? Os agendamentos que já tinham ele atribuído ficam sem profissional.'))return;
+ await api(`/api/funcionarios/${id}`,{method:'DELETE'});
+ abrirFuncionarios();
+ agenda();
+}
+$('btnFuncionarios').onclick=abrirFuncionarios;
+$('fecharFuncionarios').onclick=()=>$('funcModal').classList.add('hidden');
+$('formFuncBanho').onsubmit=async e=>{
+ e.preventDefault();
+ const body=Object.fromEntries(new FormData(e.target));body.setor='BANHO';
+ await api('/api/funcionarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ e.target.reset();
+ await carregarListaFuncionarios('BANHO','listaFuncBanho');
+ agenda();
+};
+$('formFuncClinica').onsubmit=async e=>{
+ e.preventDefault();
+ const body=Object.fromEntries(new FormData(e.target));body.setor='CLINICA';
+ await api('/api/funcionarios',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ e.target.reset();
+ await carregarListaFuncionarios('CLINICA','listaFuncClinica');
+ agenda();
+};
