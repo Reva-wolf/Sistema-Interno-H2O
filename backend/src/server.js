@@ -9,6 +9,8 @@ const petsRoutes = require('./routes/pets.routes');
 const agendamentosRoutes = require('./routes/agendamentos.routes');
 const alertasRoutes = require('./routes/alertas.routes');
 const bloqueiosRoutes = require('./routes/bloqueios.routes');
+const funcionariosRoutes = require('./routes/funcionarios.routes');
+const { ensureSchemaCompatibility } = require('./config/database');
 
 const app=express();
 const PORT=Number(process.env.PORT||3000);
@@ -18,12 +20,17 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname,'../../frontend')));
 
 app.get('/api',(req,res)=>res.json({sistema:'Sistema Interno H2O',versao:'1.1'}));
+// Qualquer endpoint /api que não exista deve responder JSON, nunca index.html.
 app.use('/api/health',healthRoutes);
 app.use('/api/tutores',tutoresRoutes);
 app.use('/api/pets',petsRoutes);
 app.use('/api/agendamentos',agendamentosRoutes);
 app.use('/api/alertas',alertasRoutes);
 app.use('/api/bloqueios',bloqueiosRoutes);
+app.use('/api/funcionarios',funcionariosRoutes);
+
+// 404 da API em JSON para evitar "Unexpected token '<'" no frontend.
+app.use('/api', (req,res)=>res.status(404).json({erro:`Endpoint não encontrado: ${req.method} ${req.originalUrl}`}));
 
 app.get('/*splat',(req,res)=>res.sendFile(path.join(__dirname,'../../frontend/index.html')));
 
@@ -34,4 +41,12 @@ app.use((err,req,res,next)=>{
   res.status(500).json({erro: err.sqlMessage || err.message || 'Erro interno do servidor.'});
 });
 
-app.listen(PORT,'0.0.0.0',()=>console.log(`H2O: http://localhost:${PORT}`));
+(async()=>{
+  try{
+    await ensureSchemaCompatibility();
+    app.listen(PORT,'0.0.0.0',()=>console.log(`H2O: http://localhost:${PORT}`));
+  }catch(err){
+    console.error('[H2O] Falha ao preparar o banco de dados:', err.message);
+    process.exit(1);
+  }
+})();

@@ -11,7 +11,7 @@ router.get('/', async (req,res)=>{
     JOIN agendamentos a ON a.id=al.agendamento_id
     JOIN tutores t ON t.id=a.tutor_id
     JOIN pets p ON p.id=a.pet_id
-    ORDER BY al.lido ASC, al.created_at DESC
+    ORDER BY al.sinalizado ASC, al.created_at DESC
   `);
   res.json(rows);
 });
@@ -55,6 +55,15 @@ router.post('/', async (req,res)=>{
 router.patch('/:id/lido',async(req,res)=>{
   await pool.query('UPDATE alertas_clinica SET lido=1 WHERE id=?',[req.params.id]);
   res.json({ok:true});
+});
+
+router.patch('/:id/sinalizado',async(req,res)=>{
+  const valor = req.body.valor === undefined ? true : !!req.body.valor;
+  await pool.query(
+    'UPDATE alertas_clinica SET sinalizado=?, lido=CASE WHEN ?=1 THEN 1 ELSE lido END WHERE id=?',
+    [valor?1:0,valor?1:0,req.params.id]
+  );
+  res.json({ok:true,sinalizado:valor});
 });
 
 module.exports=router;

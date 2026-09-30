@@ -9,6 +9,7 @@
 <header class="topbar">
   <div><h1>H2O</h1><span>Sistema Interno</span></div>
   <button id="voiceButton" class="voice">🎙️ Voz</button>
+  <span id="vozStatus" class="muted voz-status"></span>
 </header>
 <main>
 <section class="toolbar">
@@ -20,6 +21,7 @@
 <button class="tab active" data-setor="BANHO">🛁 Banho e Tosa</button>
 <button class="tab" data-setor="CLINICA">🩺 Clínica</button>
 <button class="tab" data-setor="LOJA">🏪 Loja</button>
+<button class="tab" data-setor="FINALIZADOS">✅ Finalizados</button>
 <button class="tab alerttab" id="alertasTab">🚨 Alertas <b id="alertCount">0</b></button>
 </nav>
 <section class="summary">
@@ -27,6 +29,7 @@
 <div class="card"><strong id="aguardando">0</strong><span>Aguardando</span></div>
 <div class="card"><strong id="andamento">0</strong><span>Em andamento</span></div>
 <div class="card"><strong id="liberados">0</strong><span>Liberados</span></div>
+<div class="card loja-summary"><strong id="lojaTotal">R$ 0,00</strong><span>Consumo da Loja</span></div>
 </section>
 <section class="agenda">
 <div class="agenda-head"><h2 id="titulo">Agenda — Banho e Tosa</h2><span id="subtitulo">20 horários</span></div>
@@ -35,7 +38,7 @@
 </main>
 
 <div id="modal" class="modal hidden"><div class="modal-box">
-<button class="close" id="fechar">×</button><h2>Novo agendamento</h2>
+<button class="close" id="fechar">×</button><h2 id="modalAgendamentoTitulo">Novo agendamento</h2>
 <form id="form">
 <div class="grid2">
 <label>Data<input name="data" id="fdata" type="date" required></label>
@@ -47,7 +50,9 @@
   <div class="linha-add"><select name="pet_id" id="pet" required></select><button type="button" class="secundario" id="btnNovoPet">＋ novo</button></div>
 </label>
 <label>Espécie<input id="especie" readonly placeholder="Selecionada pelo pet"></label>
-<label>Serviço<input name="servico" placeholder="Banho, tosa, consulta..." required></label>
+<label>Serviço<select name="servico" id="servicoSelect" required><option value="">Selecione...</option></select></label>
+<label>Valor total (R$)<input name="valor_total" id="valorTotal" type="number" step="0.01" min="0" placeholder="0,00"></label>
+<label>Valor do transporte (R$)<input name="valor_transporte" id="valorTransporte" type="number" step="0.01" min="0" placeholder="Se houver"></label>
 </div>
 <label>Observações<textarea name="observacoes" rows="3"></textarea></label>
 <button class="primary full">Salvar</button>

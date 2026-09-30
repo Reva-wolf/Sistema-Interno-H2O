@@ -19,6 +19,13 @@ CREATE TABLE IF NOT EXISTS pets (
   CONSTRAINT fk_pet_tutor FOREIGN KEY (tutor_id) REFERENCES tutores(id)
 );
 
+CREATE TABLE IF NOT EXISTS funcionarios (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  nome VARCHAR(100) NOT NULL,
+  setor ENUM('BANHO','CLINICA') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS agendamentos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   data DATE NOT NULL,
@@ -27,15 +34,34 @@ CREATE TABLE IF NOT EXISTS agendamentos (
   pet_id INT NOT NULL,
   setor ENUM('BANHO','CLINICA','LOJA') NOT NULL,
   origem_agendamento_id INT NULL,
+  funcionario_id INT NULL,
   servico VARCHAR(100) NOT NULL,
   especie ENUM('CAO','GATO') NOT NULL,
   status ENUM('AGENDADO','ANDAMENTO','LIBERADO','CANCELADO') DEFAULT 'AGENDADO',
+  iniciado_em DATETIME NULL,
+  finalizado_em DATETIME NULL,
   pago BOOLEAN DEFAULT FALSE,
   retirado BOOLEAN DEFAULT FALSE,
+  desmarcado BOOLEAN DEFAULT FALSE,
+  valor_total DECIMAL(10,2) NULL,
+  valor_transporte DECIMAL(10,2) NULL,
+  tipo_th BOOLEAN DEFAULT FALSE,
+  tipo_tt BOOLEAN DEFAULT FALSE,
+  tipo_medicamentoso BOOLEAN DEFAULT FALSE,
+  medicamento VARCHAR(150) NULL,
+  levado_transporte BOOLEAN DEFAULT FALSE,
+  anotado BOOLEAN DEFAULT FALSE,
+  vacina BOOLEAN DEFAULT FALSE,
+  vacina_qual VARCHAR(150) NULL,
+  exame BOOLEAN DEFAULT FALSE,
+  exame_qual VARCHAR(150) NULL,
+  outro_servico BOOLEAN DEFAULT FALSE,
+  outro_servico_qual VARCHAR(150) NULL,
   observacoes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_ag_tutor FOREIGN KEY (tutor_id) REFERENCES tutores(id),
   CONSTRAINT fk_ag_pet FOREIGN KEY (pet_id) REFERENCES pets(id),
+  CONSTRAINT fk_ag_funcionario FOREIGN KEY (funcionario_id) REFERENCES funcionarios(id) ON DELETE SET NULL,
   INDEX idx_agenda_data_setor (data, setor),
   INDEX idx_agenda_horario (data, horario)
 );
