@@ -1,10 +1,14 @@
 const router = require('express').Router();
 const pool = require('../config/database');
+const {requireLoja,temAcessoLoja}=require('../middleware/auth.middleware');
 
 // Lista os horários fechados de um dia/setor
 router.get('/', async (req,res)=>{
   const {data,setor}=req.query;
   if(!data||!setor) return res.status(400).json({erro:'Informe data e setor.'});
+  if(!temAcessoLoja(req.user)&&setor!==req.user.setor){
+    return res.status(403).json({erro:'Acesso permitido apenas à agenda do seu setor.'});
+  }
   const [rows]=await pool.query(
     'SELECT * FROM horarios_bloqueados WHERE data=? AND setor=?',
     [data,setor]
@@ -13,7 +17,7 @@ router.get('/', async (req,res)=>{
 });
 
 // Fecha um horário (ex: pausa, feriado, manutenção)
-router.post('/', async (req,res)=>{
+router.post('/', requireLoja, async (req,res)=>{
   const {data,horario,setor,motivo}=req.body;
   if(!data||!horario||!setor)
     return res.status(400).json({erro:'Data, horário e setor são obrigatórios.'});
@@ -31,7 +35,9 @@ router.post('/', async (req,res)=>{
 });
 
 // Reabre um horário fechado
-router.delete('/:id', async (req,res)=>{
+router.delete('/:id', requireLoja, async (req,res)=>{
+  const [[block]]=await pool.query('SELECT setor FROM horarios_bloqueados WHERE id=?',[req.params.id]);
+  if(!block)return res.status(404).json({erro:'Horário bloqueado não encontrado.'});
   await pool.query('DELETE FROM horarios_bloqueados WHERE id=?',[req.params.id]);
   res.json({ok:true});
 });

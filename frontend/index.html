@@ -6,30 +6,67 @@
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<header class="topbar">
-  <div><h1>H2O</h1><span>Sistema Interno</span></div>
+<section id="authScreen" class="auth-screen" aria-labelledby="authTitle">
+ <div class="auth-card">
+  <img class="setor-inicio-logo" src="/assets/h2o-logo.png" alt="Logo do Centro de Diagnóstico Veterinário H2O">
+  <h1 id="authTitle">Acesso ao sistema</h1>
+  <div class="auth-mode-switch" role="group" aria-label="Escolha entre entrar e criar acesso">
+   <button id="authLoginMode" class="primary" type="button" aria-pressed="true">Entrar</button>
+   <button id="authCreateMode" class="secundario" type="button" aria-pressed="false">Criar</button>
+  </div>
+  <form id="loginForm">
+   <label>Usuário<input name="username" autocomplete="username" maxlength="40" required></label>
+   <label>Senha<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label>
+   <button class="primary full" type="submit">Entrar</button>
+  </form>
+  <form id="setupForm" class="hidden">
+   <p>Crie o primeiro acesso de administrador da Loja para liberar o sistema.</p>
+   <label>Usuário da Loja (até 40 caracteres)<input name="username" autocomplete="username" maxlength="40" required></label>
+   <label>Senha (8 letras minúsculas)<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="8" pattern="[a-z]{8}" title="Digite exatamente 8 letras minúsculas." required></label>
+   <button class="primary full" type="submit">Criar acesso da Loja</button>
+  </form>
+  <form id="registerForm" class="hidden">
+   <p>Crie um acesso para Banho ou Clínica. Para criar acessos da Loja, entre com uma conta administradora.</p>
+   <label>Setor<select name="setor" required><option value="BANHO">🛁 Banho</option><option value="CLINICA">🩺 Clínica</option></select></label>
+   <label>Usuário (até 40 caracteres)<input name="username" autocomplete="username" maxlength="40" required></label>
+   <label>Senha (8 letras minúsculas)<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="8" pattern="[a-z]{8}" title="Digite exatamente 8 letras minúsculas." required></label>
+   <button class="primary full" type="submit">Criar acesso</button>
+  </form>
+  <p id="authMsg" class="auth-message" role="status"></p>
+ </div>
+</section>
+
+<header id="appHeader" class="topbar hidden">
+  <img class="topbar-logo" src="/assets/h2o-logo.png" alt="Centro de Diagnóstico Veterinário H2O">
   <button id="voiceButton" class="voice">🎙️ Voz</button>
   <span id="vozStatus" class="muted voz-status"></span>
+  <span id="usuarioAtual" class="usuario-atual"></span>
+  <span id="lojaTab" class="header-loja-badge">🏪 Loja <b id="lojaCount">0</b></span>
 </header>
-<main>
+<main id="appMain" class="hidden">
 <section class="toolbar">
+  <span id="setorAtual" class="setor-atual"></span>
   <label>Data<input id="data" type="date"></label>
-  <button class="secundario" id="btnFuncionarios">👤 Funcionários</button>
-  <button class="primary" id="novo">＋ Agendamento</button>
+  <button type="button" class="secundario" id="btnFuncionarios">👤 Funcionários</button>
+  <button type="button" class="secundario hidden" id="gerenciarAcessos">🔐 Acessos</button>
+  <button type="button" class="primary hidden" id="novo">＋ Agendamento</button>
+  <button type="button" class="secundario" id="trocarSetor">Sair</button>
 </section>
 <nav class="tabs">
-<button class="tab active" data-setor="BANHO">🛁 Banho e Tosa</button>
-<button class="tab" data-setor="CLINICA">🩺 Clínica</button>
-<button class="tab" data-setor="LOJA">🏪 Loja</button>
-<button class="tab" data-setor="FINALIZADOS">✅ Finalizados</button>
 <button class="tab alerttab" id="alertasTab">🚨 Alertas <b id="alertCount">0</b></button>
+</nav>
+<nav id="lojaNav" class="loja-subtabs hidden" aria-label="Visualização da Loja">
+ <button type="button" class="loja-subtab" data-loja-visao="AGENDA_BANHO">🛁 Agenda Banho</button>
+ <button type="button" class="loja-subtab" data-loja-visao="AGENDA_CLINICA">🩺 Agenda Clínica</button>
+ <button type="button" class="loja-subtab" data-loja-visao="AGUARDANDO">🟢 Aguardando retirada</button>
+ <button type="button" class="loja-subtab" data-loja-visao="FINALIZADOS">✅ Finalizados</button>
 </nav>
 <section class="summary">
 <div class="card"><strong id="total">0</strong><span>Agendados</span></div>
 <div class="card"><strong id="aguardando">0</strong><span>Aguardando</span></div>
 <div class="card"><strong id="andamento">0</strong><span>Em andamento</span></div>
 <div class="card"><strong id="liberados">0</strong><span>Liberados</span></div>
-<div class="card loja-summary"><strong id="lojaTotal">R$ 0,00</strong><span>Consumo da Loja</span></div>
+<div id="lojaSummary" class="card loja-summary hidden"><strong id="lojaTotal">R$ 0,00</strong><span>Consumo da Loja</span></div>
 </section>
 <section class="agenda">
 <div class="agenda-head"><h2 id="titulo">Agenda — Banho e Tosa</h2><span id="subtitulo">20 horários</span></div>
@@ -41,6 +78,7 @@
 <button class="close" id="fechar">×</button><h2 id="modalAgendamentoTitulo">Novo agendamento</h2>
 <form id="form">
 <div class="grid2">
+<label id="setorAgendamentoWrap">Setor do atendimento<select name="setor" id="setorAgendamento" required><option value="BANHO">🛁 Banho e Tosa</option><option value="CLINICA">🩺 Clínica</option></select></label>
 <label>Data<input name="data" id="fdata" type="date" required></label>
 <label>Horário<select name="horario" id="novoHorario" required></select></label>
 <label>Tutor
@@ -58,6 +96,30 @@
 <button class="primary full">Salvar</button>
 </form>
 <p id="formMsg" class="muted"></p>
+</div></div>
+
+<div id="acessosModal" class="modal hidden"><div class="modal-box">
+<button type="button" class="close" id="fecharAcessos">×</button><h2>🔐 Acessos dos setores</h2>
+<form id="formAcesso" class="access-form">
+ <label>Setor<select name="setor" id="setorNovoAcesso" required><option value="BANHO">🛁 Banho</option><option value="CLINICA">🩺 Clínica</option><option value="LOJA">🏪 Loja</option><option value="ADMINISTRADOR">🛡️ Administrador — acesso completo</option></select></label>
+ <label>Usuário (até 40 caracteres)<input name="username" autocomplete="off" maxlength="40" required></label>
+ <label>Senha (8 letras minúsculas)<input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="8" pattern="[a-z]{8}" title="Digite exatamente 8 letras minúsculas." required></label>
+ <button type="submit" class="primary">＋ Criar acesso</button>
+</form>
+<p id="acessoMsg" class="muted" role="status"></p>
+<div id="listaAcessos" class="access-list"></div>
+</div></div>
+
+<div id="remarcarModal" class="modal hidden"><div class="modal-box remarcar-box">
+<button type="button" class="close" onclick="cancelarReagendamento()">×</button>
+<h2>🚫 Cliente desmarcou</h2>
+<p>Marque o horário como desmarcado ou escolha uma nova data no calendário.</p>
+<label>Nova data<input id="dataReagendamento" type="date" required></label>
+<p id="reagendamentoMsg" class="muted" role="status"></p>
+<div class="remarcar-acoes">
+ <button type="button" class="secundario" onclick="marcarComoDesmarcado()">Manter desmarcado</button>
+ <button type="button" class="primary" onclick="confirmarReagendamento()">📅 Reagendar</button>
+</div>
 </div></div>
 
 <div id="modalTutor" class="modal hidden"><div class="modal-box">
@@ -91,6 +153,14 @@
 <button class="close" id="fecharAlertas">×</button><h2>🚨 Alertas para Clínica</h2>
 <div id="alertList"></div>
 </div></div>
+
+<div id="alertPopup" class="alert-popup hidden" role="alertdialog" aria-modal="true" aria-labelledby="alertPopupTitle" aria-live="assertive">
+ <section class="alert-popup-box">
+  <div class="alert-popup-heading"><span class="sirene-icon" aria-hidden="true">🚨</span><div><h2 id="alertPopupTitle">Alerta urgente</h2><p>Encaminhamentos e liberações aguardando atenção.</p></div></div>
+  <div id="alertPopupList" class="alert-popup-list"></div>
+  <div class="alert-popup-footer"><span id="sireneStatus">Ative o som para ouvir a sirene neste dispositivo.</span><button id="ativarSirene" type="button" class="primary">🔊 Ativar sirene</button></div>
+ </section>
+</div>
 
 <div id="funcModal" class="modal hidden"><div class="modal-box">
 <button class="close" id="fecharFuncionarios">×</button><h2>👤 Funcionários</h2>

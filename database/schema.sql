@@ -26,6 +26,26 @@ CREATE TABLE IF NOT EXISTS funcionarios (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS auth_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(40) NOT NULL UNIQUE,
+  password_hash CHAR(128) NOT NULL,
+  password_salt CHAR(32) NOT NULL,
+  setor ENUM('LOJA','BANHO','CLINICA','ADMINISTRADOR') NOT NULL,
+  is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+  token_hash CHAR(64) PRIMARY KEY,
+  user_id INT NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id) REFERENCES auth_users(id) ON DELETE CASCADE,
+  INDEX idx_auth_session_expiry (expires_at)
+);
+
 CREATE TABLE IF NOT EXISTS agendamentos (
   id INT AUTO_INCREMENT PRIMARY KEY,
   data DATE NOT NULL,
@@ -43,6 +63,8 @@ CREATE TABLE IF NOT EXISTS agendamentos (
   pago BOOLEAN DEFAULT FALSE,
   retirado BOOLEAN DEFAULT FALSE,
   desmarcado BOOLEAN DEFAULT FALSE,
+  remarcado_de DATE NULL,
+  remarcado_para DATE NULL,
   valor_total DECIMAL(10,2) NULL,
   valor_transporte DECIMAL(10,2) NULL,
   tipo_th BOOLEAN DEFAULT FALSE,
