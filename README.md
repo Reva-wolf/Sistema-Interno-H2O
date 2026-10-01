@@ -72,8 +72,12 @@ npm run dev
 ```
 Deve aparecer: `H2O: http://localhost:3000`
 
-Abra esse endereço no navegador — a agenda de Banho e Tosa deve carregar com os
-dados de exemplo.
+Abra esse endereço no navegador. Na primeira execução, crie o usuário e senha
+administrativos da Loja no próprio servidor; essa configuração inicial é restrita
+ao acesso local. A tela **Criar** permite cadastrar usuários de Banho e Clínica;
+usuários da Loja são criados pela conta principal em **🔐 Acessos**.
+As tabelas de usuários e sessões, incluindo a separação entre conta principal e
+acessos operacionais, são preparadas automaticamente ao iniciar o backend.
 
 ### 1.6. Deixar rodando sempre (pm2, opcional)
 Pra não depender de deixar o terminal aberto:
@@ -102,16 +106,43 @@ O servidor já escuta em `0.0.0.0`, então não precisa mudar nada no código. S
 
 ## 2. O que o sistema faz hoje
 
-### 2.1. Três agendas (abas)
-- **🛁 Banho e Tosa** e **🩺 Clínica**: grade de horários fixos (08:00–11:30 e
-  13:30–19:00, de 30 em 30 minutos).
-- **🏪 Loja**: não é uma grade de horários — é uma lista de avisos. Qualquer pet
-  liberado no Banho ou na Clínica aparece aqui automaticamente, pra avisar o
-  cliente que já pode retirar.
+### 2.1. Setores
+- Cada setor tem usuário e senha próprios. No primeiro acesso, crie a conta
+  principal da Loja. Na tela inicial, **Criar** permite cadastrar acessos de
+  Banho e Clínica; o acesso **Administrador**, com permissões completas, e os
+  acessos da Loja são criados pela conta principal em **🔐 Acessos**.
+  Cadastros públicos estão limitados a 10 por endereço IP a cada 15 minutos.
+  Nomes de usuário novos podem conter quaisquer caracteres, com até 40
+  caracteres; senhas novas devem ter exatamente 8 letras minúsculas. Nomes e
+  senhas antigos continuam aceitos no login; redefina senhas em **🔐 Acessos**
+  quando necessário. As senhas são armazenadas como hashes, e as sessões expiram
+  após 12 horas.
+- A conta principal da **Loja** e o setor **Administrador** administram
+  agendamentos, acessos, funcionários, bloqueios de horários e registros
+  financeiros. Banho e Clínica acessam somente a própria agenda, atualizam o
+  atendimento e encaminham entre setores; não podem criar agendamentos,
+  gerenciar funcionários ou bloquear horários.
+- Usuários operacionais da **Loja** podem consultar e administrar as agendas,
+  editar atendimentos e registrar retiradas. Somente uma conta principal pode
+  criar, redefinir ou desativar acessos e cadastrar funcionários. Crie outros
+  acessos completos selecionando o setor **Administrador** em **🔐 Acessos**.
+  Mantenha ao menos um acesso principal ativo; essa distinção é mantida pelo
+  campo `auth_users.is_admin`.
+- **🏪 Loja**: as abas **🛁 Agenda Banho** e **🩺 Agenda Clínica** mostram as duas
+  agendas e permitem criar horários para o setor selecionado. A Loja também reúne
+  os avisos de retirada e os finalizados.
+- **🛁 Banho e Tosa** e **🩺 Clínica**: cada usuário acessa somente a agenda do seu
+  setor. O botão de criar horário fica exclusivamente na Loja.
+- Qualquer pet
+  liberado no Banho ou na Clínica aparece aqui automaticamente (a lista se
+  atualiza a cada 5 segundos), pra avisar o cliente que já pode retirar. Dentro
+  da Loja, as abas **Aguardando retirada** e **Finalizados** reúnem atendimentos
+  dos dois setores; os finalizados são os que já foram retirados.
 
 ### 2.2. Cores da agenda
 - 🟡 Amarelo = horário livre
-- 🔴 Vermelho = aguardando (ou encaminhado — veja abaixo)
+- 🔴 Vermelho = aguardando
+- 🟣 Roxo = encaminhado
 - 🔵 Azul = em andamento
 - 🟢 Verde = liberado
 - ⚪ Cinza = horário bloqueado manualmente
@@ -125,21 +156,35 @@ Em qualquer horário livre (Banho ou Clínica), o botão "🔒 Bloquear" fecha a
 horário (com motivo opcional — pausa, feriado, manutenção). "🔓 Reabrir" libera de
 novo.
 
-### 2.5. Encaminhamento entre Banho e Clínica
+### 2.5. Desmarcação e reagendamento
+Nas agendas de Banho e Clínica, a opção **🚫 Cliente desmarcou** mantém o
+agendamento no dia original, no fim da lista e em rosa claro. Pelo calendário,
+também é possível criar um novo horário em outra data: o registro desmarcado mostra
+para qual dia foi reagendado, e o novo horário indica a data de origem. A opção de
+excluir não aparece nas agendas.
+
+### 2.6. Encaminhamento entre Banho e Clínica
 O botão "🚨 Encaminhar" existe nas duas agendas. Ao encaminhar, o sistema:
-- Cria um **agendamento de verdade** na agenda de destino, no mesmo horário (ou no
-  próximo horário livre, se o original já estiver ocupado/bloqueado lá)
+- Registra o alerta sem criar outro agendamento. Na agenda de destino, ele aparece
+  como uma mini-aba roxa sobre o horário original, ao lado do agendamento que já
+  existe; as mini-abas podem ser selecionadas para alternar a visualização.
 - Marca o agendamento de origem em vermelho ("Encaminhado") até o alerta ser
   marcado como lido na aba 🚨 Alertas
-- O agendamento criado no destino tem todos os botões normais: status,
-  funcionário, pago, retirado
+- O alerta pode ser sinalizado pelo pop-up, pelo histórico de Alertas ou na
+  mini-aba do encaminhamento recebido
+- Encaminhamentos pendentes e pets liberados no Banho ou na Clínica aparecem em
+  um pop-up sobre a tela e tocam uma sirene; encaminhamentos podem ser sinalizados
+  no pop-up e a Loja pode aceitar a chegada por ali sem marcar o pet como retirado.
+  O navegador exige interação para liberar o áudio; ao abrir o sistema,
+  clique/toque uma vez na tela ou use **Ativar sirene** no pop-up.
 
-### 2.6. Pagamento e retirada
+### 2.7. Pagamento e retirada
 Cada agendamento (Banho ou Clínica) tem dois checkboxes independentes:
-💰 **Pago** e ✅ **Retirado**. Quando o status vira "Liberado", ele entra na lista
-de avisos da Loja; marcar "✅ Cliente avisado / Retirado" lá tira o item da lista.
+💰 **Pago** e ✅ **Retirado**. Quando o status vira "Liberado", ele entra
+automaticamente na agenda da Loja. Aceitar o aviso no pop-up confirma o recebimento
+pela Loja; o item continua em **Aguardando retirada** até ser marcado como retirado.
 
-### 2.7. Funcionários
+### 2.8. Funcionários
 Botão **👤 Funcionários** no topo abre uma tela para cadastrar/remover
 funcionários, com listas separadas para Banho e Clínica. Cada agendamento tem uma
 caixa de seleção para escolher quem atendeu — o nome aparece direto na linha da
@@ -197,6 +242,7 @@ inteiras, nunca arquivo por arquivo.
 | `npm error... package.json` | Rodou `npm` na pasta errada | Entre em `backend` antes: `cd backend` |
 | `Access denied for user ''@'localhost'` | `.env` não existe, tem nome errado (`.env.txt`, `.env.env`) ou está vazio | Confira com `dir /a` dentro de `backend`; recrie o `.env` a partir do `.env.example` |
 | `Cannot PATCH /api/agendamentos/ID/loja` ou `Servidor não retornou JSON (404)` ao salvar dados da Loja | O front-end atualizado está chamando a rota da Loja, mas o processo do backend ainda está usando uma versão antiga sem essa rota | Copie as pastas `backend/src` e `frontend` atualizadas para a instalação em execução e reinicie o backend (`npm run dev` ou `pm2 restart h2o`). Depois, recarregue a página com `Ctrl+Shift+R` |
+| `Campo inválido` ao clicar em **Aceitar na Loja** | O backend em execução ainda não reconhece a confirmação de recebimento pela Loja | Atualize `backend/src/routes/agendamentos.routes.js` e `backend/src/config/database.js` no servidor, reinicie o backend (`npm run dev` ou `pm2 restart h2o`) e recarregue a página com `Ctrl+Shift+R` |
 | `Unexpected token '<', "<!DOCTYPE"...` no Console | O front-end pediu algo em uma rota que devolveu a página HTML em vez de JSON — geralmente porque um arquivo do **backend** não foi atualizado junto com os do frontend | Substitua as pastas `backend/src` e `frontend` inteiras, reinicie o servidor |
 | `Table 'h2o_sistema.xxx' doesn't exist` / `Unknown column` | O banco não tem a tabela/coluna mais nova | Rode `database/schema.sql` do zero (veja seção 1.3) ou a migração específica que falta (seção 3) |
 | Campo Horário do formulário vem vazio | Alguma chamada de dados falhou (geralmente ligado ao erro acima) — a partir desta versão o próprio campo mostra a mensagem de erro em vez de ficar em branco | Leia a mensagem de erro que aparece dentro do próprio campo |
